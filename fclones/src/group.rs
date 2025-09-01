@@ -30,6 +30,7 @@ use thread_local::ThreadLocal;
 use crate::arg::Arg;
 use crate::config::*;
 use crate::device::{DiskDevice, DiskDevices};
+use crate::enhanced_cache::{CacheBackend, CacheEntry, EnhancedCache};
 use crate::error::Error;
 use crate::file::*;
 use crate::hasher::FileHasher;
@@ -39,7 +40,9 @@ use crate::phase::{Phase, Phases};
 use crate::report::{FileStats, ReportHeader, ReportWriter};
 use crate::rlimit::RLIMIT_OPEN_FILES;
 use crate::selector::PathSelector;
+use crate::semantic_hash::{is_image_file, SemanticHash};
 use crate::semaphore::Semaphore;
+use crate::sidecar::{process_image_with_cache, parse_thumbnail_sizes, is_image_file as is_image_for_sidecar};
 use crate::walk::Walk;
 
 /// Groups items by key.
@@ -1249,6 +1252,49 @@ pub fn group_files(config: &GroupConfig, log: &dyn Log) -> Result<Vec<FileGroup<
             }
         }
     };
+
+    // Add semantic hash grouping for images if enabled
+    #[cfg(feature = "semantic-hash")]
+    if config.semantic_hash.is_some() {
+        let all_files: Vec<FileInfo> = groups.iter().flat_map(|g| g.files.clone()).collect();
+        let semantic_groups = group_by_semantic_hash(all_files, config, log)?;
+        groups.extend(semantic_groups);
+    }
+
+    // Process images for sidecars, thumbnails, and orientation correction
+    #[cfg(feature = "image-processing")]
+    if config.generate_sidecars || config.thumbnail_sizes.is_some() || config.correct_orientation {
+        let thumbnail_sizes = if let Some(ref sizes_str) = config.thumbnail_sizes {
+            parse_thumbnail_sizes(sizes_str).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+
+        let all_files: Vec<FileInfo> = groups.iter().flat_map(|g| g.files.clone()).collect();
+        let image_files: Vec<_> = all_files.iter()
+            .filter(|f| is_image_for_sidecar(&f.path.to_path_buf()))
+            .collect();
+
+        if !image_files.is_empty() {
+            let spinner = log.progress_bar("Processing images", ProgressBarLength::Items(image_files.len()));
+            let mut cache = ctx.cache.clone();
+            
+            image_files.par_iter().for_each(|file_info| {
+                let _ = process_image_with_cache(
+                    &file_info.path.to_path_buf(),
+                    &mut cache,
+                    config.generate_sidecars,
+                    config.metadata_dir.as_deref(),
+                    &thumbnail_sizes,
+                    config.thumbnail_dir.as_deref(),
+                    config.correct_orientation,
+                );
+                spinner.tick();
+            });
+            drop(spinner);
+        }
+    }
+
     groups.par_sort_by_key(|g| Reverse((g.file_len, g.file_hash.u128_prefix())));
     groups
         .par_iter_mut()
@@ -1318,6 +1364,114 @@ pub fn write_report(
             let mut reporter = ReportWriter::new(BufWriter::new(term), color);
             reporter.write(config.format, &header, groups.iter())
         }
+    }
+}
+
+/// Groups image files by semantic hash similarity
+pub fn group_by_semantic_hash(
+    files: Vec<FileInfo>,
+    config: &GroupConfig,
+    log: &dyn Log,
+) -> Result<Vec<FileGroup<FileInfo>>, Error> {
+    #[cfg(feature = "semantic-hash")]
+    {
+        if let Some(hash_type) = config.semantic_hash {
+            let threshold = config.semantic_threshold;
+            let mut cache = setup_cache(config)?;
+            
+            let progress = log.progress_bar("Computing semantic hashes", ProgressBarLength::Items(files.len() as u64));
+            let mut semantic_hashes = Vec::new();
+            
+            for file in &files {
+                if is_image_file(&file.path.to_path_buf()) {
+                    let should_compute = cache.as_ref()
+                        .map(|c| c.should_recompute(&file.path.to_path_buf()))
+                        .unwrap_or(true);
+                    
+                    if should_compute {
+                        match SemanticHash::compute(&file.path.to_path_buf(), hash_type) {
+                            Ok(hash) => {
+                                if let Some(ref mut cache) = cache {
+                                    let entry = CacheEntry {
+                                        semantic_hash: Some(hash.clone()),
+                                        file_size: file.len.0,
+                                        modified: 0, // FileInfo doesn't have modified time
+                                    };
+                                    let _ = cache.set(&file.path.to_path_buf(), entry);
+                                }
+                                semantic_hashes.push((file.clone(), hash));
+                            }
+                            Err(_) => continue,
+                        }
+                    } else if let Some(ref cache) = cache {
+                        if let Some(entry) = cache.get(&file.path.to_path_buf()) {
+                            if let Some(hash) = entry.semantic_hash {
+                                semantic_hashes.push((file.clone(), hash));
+                            }
+                        }
+                    }
+                }
+                progress.inc(1);
+            }
+            
+            if let Some(cache) = cache {
+                let _ = cache.flush();
+            }
+            
+            drop(progress);
+            
+            // Group by semantic similarity
+            let mut groups = Vec::new();
+            let mut processed = vec![false; semantic_hashes.len()];
+            
+            for i in 0..semantic_hashes.len() {
+                if processed[i] { continue; }
+                
+                let mut group_files = vec![semantic_hashes[i].0.clone()];
+                processed[i] = true;
+                
+                for j in (i + 1)..semantic_hashes.len() {
+                    if processed[j] { continue; }
+                    
+                    let distance = semantic_hashes[i].1.perceptual_distance(&semantic_hashes[j].1);
+                    if distance <= threshold {
+                        group_files.push(semantic_hashes[j].0.clone());
+                        processed[j] = true;
+                    }
+                }
+                
+                if group_files.len() > 1 {
+                    groups.push(FileGroup {
+                        file_len: group_files[0].len,
+                        file_hash: FileHash::from(semantic_hashes[i].1.content as u128),
+                        files: group_files,
+                    });
+                }
+            }
+            
+            Ok(groups)
+        } else {
+            Ok(vec![])
+        }
+    }
+    #[cfg(not(feature = "semantic-hash"))]
+    {
+        let _ = (files, config, log);
+        Ok(vec![])
+    }
+}
+
+fn setup_cache(config: &GroupConfig) -> Result<Option<EnhancedCache>, Error> {
+    if let Some(ref cache_file) = config.cache_file {
+        Ok(Some(EnhancedCache::new(CacheBackend::File(cache_file.clone()))
+            .map_err(|e| Error::new(format!("Failed to setup file cache: {}", e)))?))
+    } else {
+        #[cfg(feature = "redis-cache")]
+        if let Some(ref redis_url) = config.redis_cache {
+            return Ok(Some(EnhancedCache::new(CacheBackend::Redis(redis_url.clone()))
+                .map_err(|e| Error::new(format!("Failed to setup Redis cache: {}", e)))?));
+        }
+        Ok(None)
     }
 }
 

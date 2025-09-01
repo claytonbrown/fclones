@@ -234,7 +234,16 @@ pub fn run_dedupe(op: DedupeOp, config: DedupeConfig, log: &dyn Log) -> Result<(
             result.processed_count, upto, result.reclaimed_space
         ));
     } else {
+        #[cfg(feature = "metadata-preserve")]
+        let result = if dedupe_config.preserve_metadata {
+            run_script_with_metadata(script, !dedupe_config.no_lock, true, log)
+        } else {
+            run_script(script, !dedupe_config.no_lock, log)
+        };
+        
+        #[cfg(not(feature = "metadata-preserve"))]
         let result = run_script(script, !dedupe_config.no_lock, log);
+        
         log.info(format!(
             "Processed {} files and reclaimed {}{} space",
             result.processed_count, upto, result.reclaimed_space

@@ -63,10 +63,17 @@ thread_local = "1.1"
 typed-sled = "0.2.0"
 uuid = { version = "1.1", features = ["v4"] }
 xxhash-rust = { version = "0.8", features = ["xxh3"], optional = true }
+image = { version = "0.24", optional = true }
+redis = { version = "0.23", optional = true }
+kamadak-exif = { version = "0.6", optional = true }
 
 [features]
 default = ["blake3", "xxhash", "sha2", "sha3"]
 xxhash = ["xxhash-rust"]
+semantic-hash = ["image"]
+redis-cache = ["redis"]
+metadata-preserve = ["xattr"]
+image-processing = ["image", "kamadak-exif"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
 fiemap = "0.1"
@@ -75,7 +82,7 @@ fiemap = "0.1"
 file-owner = "0.1"
 libc = "0.2"
 nix = { version = "0.27", features = [ "user", "fs", "ioctl" ] }
-xattr = "1"
+xattr = { version = "1", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"

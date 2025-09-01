@@ -364,6 +364,56 @@ pub struct GroupConfig {
     #[arg(long, value_name = "PATH", default_value("."))]
     pub base_dir: Path,
 
+    /// Enable semantic hashing for image files using perceptual hashing algorithms.
+    #[cfg(feature = "semantic-hash")]
+    #[arg(long, value_enum, value_name = "ALGORITHM")]
+    pub semantic_hash: Option<crate::semantic_hash::SemanticHashType>,
+
+    /// Hamming distance threshold for semantic hash matching (0-64, lower = more strict).
+    #[cfg(feature = "semantic-hash")]
+    #[arg(long, default_value = "10", value_name = "DISTANCE")]
+    pub semantic_threshold: u32,
+
+    /// Cache file location for storing processed file hashes.
+    #[arg(long, value_name = "PATH")]
+    pub cache_file: Option<PathBuf>,
+
+    /// Redis server URL for caching processed file hashes.
+    #[cfg(feature = "redis-cache")]
+    #[arg(long, value_name = "URL")]
+    pub redis_cache: Option<String>,
+
+    /// Preserve EXIF, IPTC, and XMP metadata when creating hard or soft links.
+    /// Merges metadata from all duplicates, preferring data from the most recently modified file.
+    #[cfg(feature = "metadata-preserve")]
+    #[arg(long)]
+    pub preserve_metadata: bool,
+
+    /// Generate JSON sidecar files with EXIF, IPTC, and XMP metadata in dot notation.
+    #[cfg(feature = "image-processing")]
+    #[arg(long)]
+    pub generate_sidecars: bool,
+
+    /// Base directory for sidecar files to recreate directory structure.
+    #[cfg(feature = "image-processing")]
+    #[arg(long, value_name = "PATH")]
+    pub metadata_dir: Option<PathBuf>,
+
+    /// Generate thumbnails with specified sizes (e.g., "800x600,640x480,100x100").
+    #[cfg(feature = "image-processing")]
+    #[arg(long, value_name = "SIZES")]
+    pub thumbnail_sizes: Option<String>,
+
+    /// Directory for generated thumbnails.
+    #[cfg(feature = "image-processing")]
+    #[arg(long, value_name = "PATH")]
+    pub thumbnail_dir: Option<PathBuf>,
+
+    /// Correct image orientation based on EXIF data without quality loss.
+    #[cfg(feature = "image-processing")]
+    #[arg(long)]
+    pub correct_orientation: bool,
+
     /// A list of input paths.
     ///
     /// Accepts files and directories.
@@ -662,6 +712,12 @@ pub struct DedupeConfig {
     /// this flag is set automatically if `--transform` was used.
     #[arg(long)]
     pub no_check_size: bool,
+
+    /// Preserve EXIF, IPTC, and XMP metadata when creating hard or soft links.
+    /// Merges metadata from all duplicates, preferring data from the most recently modified file.
+    #[cfg(feature = "metadata-preserve")]
+    #[arg(long)]
+    pub preserve_metadata: bool,
 }
 
 #[derive(clap::Subcommand, Debug)]

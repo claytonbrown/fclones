@@ -1,0 +1,64 @@
+# Build targets for fclones
+# Synology NAS architectures and common platforms
+
+[targets]
+
+# Common platforms
+wsl2-ubuntu24 = { target = "x86_64-unknown-linux-gnu", features = [] }
+osx-intel = { target = "x86_64-apple-darwin", features = [] }
+osx-silicon = { target = "aarch64-apple-darwin", features = [] }
+
+# Synology x86_64 architectures
+purley = { target = "x86_64-unknown-linux-gnu", features = [] }
+broadwellnk = { target = "x86_64-unknown-linux-gnu", features = [] }
+broadwellnkv2 = { target = "x86_64-unknown-linux-gnu", features = [] }
+broadwell = { target = "x86_64-unknown-linux-gnu", features = [] }
+grantley = { target = "x86_64-unknown-linux-gnu", features = [] }
+v1000 = { target = "x86_64-unknown-linux-gnu", features = [] }
+v1000nk = { target = "x86_64-unknown-linux-gnu", features = [] }
+r1000 = { target = "x86_64-unknown-linux-gnu", features = [] }
+r1000nk = { target = "x86_64-unknown-linux-gnu", features = [] }
+epyc7002 = { target = "x86_64-unknown-linux-gnu", features = [] }
+geminilake = { target = "x86_64-unknown-linux-gnu", features = [] }
+geminilakenk = { target = "x86_64-unknown-linux-gnu", features = [] }
+denverton = { target = "x86_64-unknown-linux-gnu", features = [] }
+apollolake = { target = "x86_64-unknown-linux-gnu", features = [] }
+avoton = { target = "x86_64-unknown-linux-gnu", features = [] }
+braswell = { target = "x86_64-unknown-linux-gnu", features = [] }
+cedarview = { target = "x86_64-unknown-linux-gnu", features = [] }
+bromlow = { target = "x86_64-unknown-linux-gnu", features = [] }
+x86 = { target = "x86_64-unknown-linux-gnu", features = [] }
+
+# Synology ARM architectures
+rtd1619b = { target = "aarch64-unknown-linux-gnu", features = [] }
+rtd1296 = { target = "aarch64-unknown-linux-gnu", features = [] }
+armada37xx = { target = "aarch64-unknown-linux-gnu", features = [] }
+armada38x = { target = "armv7-unknown-linux-gnueabihf", features = [] }
+armada375 = { target = "armv7-unknown-linux-gnueabihf", features = [] }
+armada370 = { target = "armv7-unknown-linux-gnueabihf", features = [] }
+armadaxp = { target = "armv7-unknown-linux-gnueabihf", features = [] }
+alpine = { target = "armv7-unknown-linux-gnueabihf", features = [] }
+alpine4k = { target = "armv7-unknown-linux-gnueabihf", features = [] }
+comcerto2k = { target = "armv7-unknown-linux-gnueabihf", features = [] }
+monaco = { target = "armv7-unknown-linux-gnueabihf", features = [] }
+88f6281 = { target = "arm-unknown-linux-gnueabi", features = [] }
+88f5281 = { target = "arm-unknown-linux-gnueabi", features = [] }
+88f6180 = { target = "arm-unknown-linux-gnueabi", features = [] }
+
+# Synology router architectures
+cypress = { target = "aarch64-unknown-linux-gnu", features = [] }
+dakota = { target = "armv7-unknown-linux-gnueabihf", features = [] }
+ipq806x = { target = "armv7-unknown-linux-gnueabihf", features = [] }
+northstarplus = { target = "armv7-unknown-linux-gnueabihf", features = [] }
+
+# Synology NVR architectures
+hi3535 = { target = "armv7-unknown-linux-gnueabihf", features = [] }
+hi3536 = { target = "armv7-unknown-linux-gnueabihf", features = [] }
+
+# Legacy architectures
+evansport = { target = "i686-unknown-linux-gnu", features = [] }
+qoriq = { target = "powerpc-unknown-linux-gnu", features = [] }
+ppc853x = { target = "powerpc-unknown-linux-gnu", features = [] }
+ppc824x = { target = "powerpc-unknown-linux-gnu", features = [] }
+ppc854x = { target = "powerpc-unknown-linux-gnu", features = [] }
+powerpc = { target = "powerpc-unknown-linux-gnu", features = [] }

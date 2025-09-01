@@ -29,12 +29,12 @@ pub fn reflink(src: &PathAndMetadata, dest: &PathAndMetadata, log: &dyn Log) -> 
             linux_reflink(src, dest, log)?;
             restore_metadata(&dest_path_buf, &dest.metadata, Restore::TimestampOnly)
         } else {
-            #[cfg(unix)]
+            #[cfg(all(unix, feature = "metadata-preserve"))]
             let dest_xattrs = get_xattrs(&dest_path_buf)?;
 
             safe_reflink(src, dest, log)?;
 
-            #[cfg(unix)]
+            #[cfg(all(unix, feature = "metadata-preserve"))]
             restore_xattrs(&dest_path_buf, dest_xattrs)?;
 
             restore_metadata(
@@ -233,7 +233,7 @@ fn restore_metadata(
     Ok(())
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "metadata-preserve"))]
 fn get_xattrs(path: &std::path::Path) -> io::Result<Vec<XAttr>> {
     use itertools::Itertools;
     use xattr::FileExt;
@@ -269,7 +269,7 @@ fn get_xattrs(path: &std::path::Path) -> io::Result<Vec<XAttr>> {
         .try_collect()
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "metadata-preserve"))]
 fn restore_xattrs(path: &std::path::Path, xattrs: Vec<XAttr>) -> io::Result<()> {
     use xattr::FileExt;
     let file = fs::File::open(path)?;
