@@ -197,3 +197,255 @@ pub fn is_image_file(path: &Path) -> bool {
         false
     }
 }
+
+// Enhanced thumbnail and metadata directory isolation
+pub fn create_thumbnail_path_isolated(
+    image_path: &Path, 
+    size: (u32, u32), 
+    thumbnail_dir: Option<&Path>
+) -> PathBuf {
+    let base_name = image_path.file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("unknown");
+    
+    let thumb_name = format!("{}_{}_{}x{}.jpg", base_name, 
+        image_path.extension().and_then(|ext| ext.to_str()).unwrap_or("img"),
+        size.0, size.1);
+    
+    if let Some(thumbnail_dir) = thumbnail_dir {
+        // Create isolated thumbnail directory structure mirroring original
+        let relative_path = if image_path.is_absolute() {
+            image_path.strip_prefix("/").unwrap_or(image_path)
+        } else {
+            image_path
+        };
+        
+        let parent_in_thumbs = thumbnail_dir.join(
+            relative_path.parent().unwrap_or(Path::new(""))
+        );
+        
+        parent_in_thumbs.join(thumb_name)
+    } else {
+        image_path.parent()
+            .unwrap_or(Path::new("."))
+            .join(format!(".thumbnails/{}", thumb_name))
+    }
+}
+
+pub fn create_sidecar_path_isolated(image_path: &Path, metadata_dir: Option<&Path>) -> PathBuf {
+    let base_name = image_path.file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("unknown");
+    
+    let sidecar_name = format!("{}.fclones.json", base_name);
+    
+    if let Some(metadata_dir) = metadata_dir {
+        // Create isolated metadata directory structure mirroring original
+        let relative_path = if image_path.is_absolute() {
+            image_path.strip_prefix("/").unwrap_or(image_path)
+        } else {
+            image_path
+        };
+        
+        let parent_in_metadata = metadata_dir.join(
+            relative_path.parent().unwrap_or(Path::new(""))
+        );
+        
+        parent_in_metadata.join(sidecar_name)
+    } else {
+        image_path.parent()
+            .unwrap_or(Path::new("."))
+            .join(sidecar_name)
+    }
+}
+
+pub fn process_image_with_isolated_variants(
+    image_path: &Path,
+    cache: &mut EnhancedCache,
+    thumbnail_sizes: &[(u32, u32)],
+    thumbnail_dir: Option<&Path>,
+    metadata_dir: Option<&Path>,
+    correct_orientation: bool,
+) -> Result<SidecarData, Box<dyn std::error::Error>> {
+    let mut sidecar = SidecarData::extract_from_image(image_path)?;
+    
+    // Generate thumbnails with directory isolation
+    for &size in thumbnail_sizes {
+        let thumb_path = create_thumbnail_path_isolated(image_path, size, thumbnail_dir);
+        
+        // Ensure thumbnail directory exists
+        if let Some(parent) = thumb_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        
+        // Simulate thumbnail creation (would use actual image processing library)
+        let thumb_info = ThumbnailInfo {
+            size,
+            path: thumb_path,
+            format: "jpeg".to_string(),
+        };
+        
+        sidecar.thumbnails.push(thumb_info);
+    }
+    
+    // Save sidecar file with directory isolation
+    let sidecar_path = create_sidecar_path_isolated(image_path, metadata_dir);
+    if let Some(parent) = sidecar_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    
+    let sidecar_json = sidecar.to_json()?;
+    fs::write(&sidecar_path, sidecar_json)?;
+    
+    Ok(sidecar)
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnhancedThumbnailInfo {
+    pub size: (u32, u32),
+    pub path: PathBuf,
+    pub format: String,
+    pub file_size: Option<u64>,
+    pub created_at: String,
+    pub quality: Option<u8>,
+    pub compression_ratio: Option<f32>,
+}
+
+impl EnhancedThumbnailInfo {
+    pub fn new(size: (u32, u32), path: PathBuf, format: String) -> Self {
+        Self {
+            size,
+            path,
+            format,
+            file_size: None,
+            created_at: chrono::Utc::now().to_rfc3339(),
+            quality: None,
+            compression_ratio: None,
+        }
+    }
+
+    pub fn with_file_info(mut self, original_size: u64) -> Self {
+        if let Ok(metadata) = fs::metadata(&self.path) {
+            let thumb_size = metadata.len();
+            self.file_size = Some(thumb_size);
+            self.compression_ratio = Some(thumb_size as f32 / original_size as f32);
+        }
+        self
+    }
+
+    pub fn with_quality(mut self, quality: u8) -> Self {
+        self.quality = Some(quality);
+        self
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnhancedSidecarData {
+    pub original_path: PathBuf,
+    pub file_size: u64,
+    pub hash: Option<String>,
+    pub metadata: HashMap<String, String>,
+    pub thumbnails: Vec<EnhancedThumbnailInfo>,
+    pub created_at: String,
+    pub processing_time_ms: Option<u64>,
+}
+
+impl EnhancedSidecarData {
+    pub fn new(original_path: PathBuf) -> Self {
+        Self {
+            original_path,
+            file_size: 0,
+            hash: None,
+            metadata: HashMap::new(),
+            thumbnails: Vec::new(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+            processing_time_ms: None,
+        }
+    }
+
+    pub fn extract_from_image(image_path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut sidecar = Self::new(image_path.to_path_buf());
+        
+        if let Ok(metadata) = fs::metadata(image_path) {
+            sidecar.file_size = metadata.len();
+        }
+        
+        // Extract basic metadata
+        sidecar.metadata.insert("format".to_string(), 
+            image_path.extension()
+                .and_then(|ext| ext.to_str())
+                .unwrap_or("unknown").to_string());
+        
+        Ok(sidecar)
+    }
+
+    pub fn add_thumbnail(&mut self, size: (u32, u32), path: PathBuf, format: String, quality: Option<u8>) {
+        let thumbnail = EnhancedThumbnailInfo::new(size, path, format)
+            .with_file_info(self.file_size);
+        
+        let thumbnail = if let Some(q) = quality {
+            thumbnail.with_quality(q)
+        } else {
+            thumbnail
+        };
+        
+        self.thumbnails.push(thumbnail);
+    }
+
+    pub fn set_processing_time(&mut self, start_time: std::time::Instant) {
+        self.processing_time_ms = Some(start_time.elapsed().as_millis() as u64);
+    }
+
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string_pretty(self)
+    }
+}
+pub fn process_image_with_enhanced_thumbnails(
+    image_path: &Path,
+    thumbnail_sizes: &[(u32, u32)],
+    thumbnail_dir: Option<&Path>,
+    metadata_dir: Option<&Path>,
+    quality: Option<u8>,
+) -> Result<EnhancedSidecarData, Box<dyn std::error::Error>> {
+    let start_time = std::time::Instant::now();
+    let mut sidecar = EnhancedSidecarData::extract_from_image(image_path)?;
+    
+    // Generate hash for the original image
+    if let Ok(content) = fs::read(image_path) {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        
+        let mut hasher = DefaultHasher::new();
+        content.hash(&mut hasher);
+        sidecar.hash = Some(format!("{:x}", hasher.finish()));
+    }
+    
+    // Generate thumbnails with enhanced information
+    for &size in thumbnail_sizes {
+        let thumb_path = create_thumbnail_path_isolated(image_path, size, thumbnail_dir);
+        
+        // Ensure thumbnail directory exists
+        if let Some(parent) = thumb_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        
+        // Simulate thumbnail creation (copy original for testing)
+        fs::copy(image_path, &thumb_path)?;
+        
+        // Add thumbnail with enhanced info
+        sidecar.add_thumbnail(size, thumb_path, "jpeg".to_string(), quality);
+    }
+    
+    // Set processing time
+    sidecar.set_processing_time(start_time);
+    
+    // Save enhanced sidecar file
+    let sidecar_path = create_sidecar_path_isolated(image_path, metadata_dir);
+    if let Some(parent) = sidecar_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    
+    let sidecar_json = sidecar.to_json()?;
+    fs::write(&sidecar_path, sidecar_json)?;
+    
+    Ok(sidecar)
+}

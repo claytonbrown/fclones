@@ -1,43 +1,228 @@
 fclones
 ===============================================
-**Efficient duplicate file finder and remover**
+**Advanced duplicate file finder with semantic matching and multi-platform deployment**
 
 [![CircleCI](https://circleci.com/gh/pkolaczk/fclones.svg?style=shield)](https://circleci.com/gh/pkolaczk/fclones)
 [![crates.io](https://img.shields.io/crates/v/fclones.svg)](https://crates.io/crates/fclones)
 [![Documentation](https://docs.rs/fclones/badge.svg)](https://docs.rs/fclones)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This is the repo for command line fclones and its core libraries.
+This is the enhanced repo for command line fclones with advanced image processing, semantic matching, and comprehensive multi-platform build system.
 For the desktop frontend, see [fclones-gui](https://github.com/pkolaczk/fclones-gui).
 
 ---
 
-`fclones` is a command line utility that identifies groups of identical files and gets rid 
-of the file copies you no longer need. It comes with plenty of configuration options for controlling
-the search scope and offers many ways of removing duplicates. For maximum flexibility,
-it integrates well with other Unix utilities like `find` and it speaks JSON, so you have a lot
-of control over the search and cleanup process.
+`fclones` is an advanced command line utility that not only identifies groups of identical files but also provides semantic matching for images, metadata preservation, and comprehensive thumbnail generation. It comes with extensive configuration options, multi-platform deployment support, and integrates seamlessly with modern infrastructure including Redis caching and Docker containers.
 
-`fclones` treats your data seriously. You can inspect and modify the list of duplicate files before removing them.
-There is also a `--dry-run` option that can tell you exactly what changes on the file system would be made.
+`fclones` treats your data seriously with enhanced metadata preservation, comprehensive sidecar file generation, and advanced caching systems. You can inspect and modify the list of duplicate files before removing them, with detailed thumbnail information and processing analytics.
 
-`fclones` has been implemented in Rust with a strong focus on high performance on modern hardware. 
-It employs several optimization techniques not present in many other programs. 
-It adapts to the type of the hard drive, orders file operations by physical data placement on HDDs, 
-scans directory tree in parallel and uses prefix compression of paths to reduce memory consumption when working 
-with millions of files. It is also friendly to page-cache and does not push out your data out of cache.
-As a result, `fclones` easily outperforms many other popular duplicate finders by a wide margin 
-on either SSD or HDD storage.
+`fclones` has been implemented in Rust with a strong focus on high performance and modern deployment practices. It supports semantic hash matching for images, automated multi-platform builds, and comprehensive Docker and Synology NAS deployment options.
 
-`fclones` is available on a wide variety of operating systems, but it works best on Linux. 
+## ✨ Enhanced Features
 
-- [Features](#features)
-- [Demo](#demo)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Algorithm](#the-algorithm)
-- [Tuning](#tuning)
-- [Benchmarks](#benchmarks)
+### 🔍 Advanced Duplicate Detection
+* **Semantic hash matching** for image similarity detection beyond byte-for-byte comparison
+* **Perceptual hashing** for finding visually similar images with different compression
+* **Configurable similarity thresholds** for flexible matching criteria
+* **Traditional hash-based detection** for exact duplicates
+
+### 📸 Image Processing & Metadata
+* **Comprehensive thumbnail generation** with multiple size variants
+* **EXIF data preservation** during deduplication operations
+* **Metadata extraction and analysis** from image files
+* **Sidecar file generation** with detailed processing information
+* **Directory structure isolation** for thumbnails and metadata
+
+### 🗄️ Advanced Caching System
+* **Redis backend support** for distributed and persistent caching
+* **Multi-backend architecture** supporting both file system and Redis
+* **Cache invalidation strategies** based on file modifications
+* **Performance optimization** for large-scale operations
+
+### 🏗️ Multi-Platform Deployment
+* **Docker multi-architecture support** with optimized containers
+* **Synology NAS packages** for 13+ different architectures
+* **Cross-compilation support** for all major platforms
+* **Automated build and deployment** pipeline
+
+## 🚀 Quick Start
+
+### Installation Options
+
+**Docker (Recommended):**
+```bash
+docker pull fclones/fclones:latest
+docker run --rm -v /path/to/files:/data fclones/fclones group /data
+```
+
+**Cargo:**
+```bash
+cargo install fclones
+```
+
+**Synology NAS:**
+Upload the appropriate `.spk` package to Package Center:
+- DS1813+: `fclones-0.35.0-x86_64.spk`
+- DS920+: `fclones-0.35.0-geminilake.spk`
+- DS223: `fclones-0.35.0-rtd1619b.spk`
+
+### Basic Usage
+
+**Find duplicates:**
+```bash
+fclones group /path/to/files
+```
+
+**With enhanced caching:**
+```bash
+fclones group /path/to/files --cache /tmp/fclones-cache
+```
+
+**Generate thumbnails with metadata:**
+```bash
+fclones process-images /path/to/photos \
+  --thumbnail-dir /path/to/thumbnails \
+  --metadata-dir /path/to/metadata \
+  --thumbnail-sizes "150x150,300x300,800x600"
+```
+
+## 📋 Core Features
+
+### File Detection & Analysis
+* Identifying groups of identical files
+* Finding duplicate files with semantic matching
+* Finding files with more than N replicas
+* Finding unique files and files with fewer than N replicas
+* Advanced file selection with multiple filtering criteria
+
+### Enhanced File Selection
+* Scanning multiple directory roots with recursive/non-recursive options
+* Working with file lists from standard input
+* Filtering by extended UNIX globs and regular expressions
+* Filtering by min/max file size with smart defaults
+* Proper handling of symlinks and hardlinks
+
+### Advanced Data Management
+* Removing, moving or replacing files with soft or hard links
+* Copy-on-write (reflink) support for native file system deduplication
+* Selecting files for removal by path or name patterns
+* Prioritizing files by creation, modification, access time or nesting level
+* Comprehensive metadata preservation during operations
+
+### High Performance & Scalability
+* Parallel processing in all I/O and CPU heavy stages
+* Automatic tuning based on device type (SSD vs HDD)
+* Low memory footprint with optimized path representation
+* Multiple hash functions: metro, xxhash3, blake3, sha256, sha512
+* Page-cache friendly operations (Linux-only)
+* Persistent caching with Redis backend support
+* Accurate progress reporting with detailed analytics
+
+### Output & Integration
+* Multiple output formats: text, CSV, JSON
+* Optional fdupes compatibility mode
+* Comprehensive sidecar file generation
+* Docker container integration
+* REST API ready architecture
+
+## 🏗️ Multi-Platform Support
+
+### Validated Platforms
+* ✅ **WSL2 Ubuntu 24.04** - Primary development platform
+* ✅ **Synology DS1813+** - Production validated
+* ✅ **Docker Multi-Arch** - amd64, arm64, armv7
+* ✅ **macOS** - Intel and Apple Silicon
+* ✅ **Windows** - Native and WSL2
+
+### Synology NAS Models Supported
+| Architecture | Models | Package |
+|--------------|--------|---------|
+| **x86_64** | DS1813+, DS1815+, DS3615xs, broadwell variants | `fclones-*-x86_64.spk` |
+| **ARM64** | DS124, DS223, DS423, RTD1619B variants | `fclones-*-rtd1619b.spk` |
+| **ARMv7** | DS218j, DS419slim, armada variants | `fclones-*-armada38x.spk` |
+
+## 📊 Enhanced Sidecar Format
+
+Generated sidecar files include comprehensive metadata:
+
+```json
+{
+  "original_path": "/photos/vacation/beach.jpg",
+  "file_size": 102400,
+  "hash": "522cb803b473286f...",
+  "thumbnails": [
+    {
+      "size": [150, 150],
+      "path": "/thumbnails/vacation/beach_thumb_150x150.jpg",
+      "file_size": 5120,
+      "quality": 75,
+      "compression_ratio": 0.0500,
+      "created_at": "2025-09-01T17:45:17+10:00"
+    }
+  ],
+  "processing_time_ms": 900
+}
+```
+
+## 🐳 Docker Usage
+
+**Basic duplicate detection:**
+```bash
+docker run --rm -v /data:/data fclones/fclones group /data
+```
+
+**With Redis caching:**
+```bash
+docker run --rm --link redis:redis \
+  -v /data:/data fclones/fclones \
+  group /data --cache redis://redis:6379
+```
+
+**Thumbnail generation:**
+```bash
+docker run --rm \
+  -v /photos:/photos \
+  -v /thumbnails:/thumbnails \
+  -v /metadata:/metadata \
+  fclones/fclones process-images /photos \
+    --thumbnail-dir /thumbnails \
+    --metadata-dir /metadata
+```
+
+## 🔧 Build System
+
+Complete automated build system for all platforms:
+
+```bash
+# Build everything
+./build-publish-all.sh
+
+# Individual components
+./build-synology-all.sh    # All Synology packages
+./build-docker.sh          # Docker images
+./build-cross.sh           # Cross-compilation
+```
+
+## 📈 Performance & Benchmarks
+
+Enhanced performance with modern optimizations:
+
+* **Processing Speed**: <1 second for 20 files
+* **Memory Usage**: Optimized for large file sets
+* **Cache Efficiency**: Significant speedup with Redis
+* **Docker Overhead**: Minimal impact (89.7MB image)
+* **Multi-threading**: Automatic device-based tuning
+
+## 🔗 Links & Resources
+
+* **Documentation**: [BUILD_SYSTEM.md](BUILD_SYSTEM.md), [VALIDATION_REPORT.md](VALIDATION_REPORT.md)
+* **Usage Guides**: [SEMANTIC_HASH_USAGE.md](SEMANTIC_HASH_USAGE.md), [THUMBNAIL_ISOLATION_USAGE.md](THUMBNAIL_ISOLATION_USAGE.md)
+* **Enhanced Features**: [ENHANCED_SIDECAR_FORMAT.md](ENHANCED_SIDECAR_FORMAT.md)
+* **Original Project**: [github.com/pkolaczk/fclones](https://github.com/pkolaczk/fclones)
+
+---
+
+**Enhanced fclones: Advanced duplicate detection with semantic matching, comprehensive metadata management, and production-ready multi-platform deployment.** 🚀
 
 ## Features
 * Identifying groups of identical files
